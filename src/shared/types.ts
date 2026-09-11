@@ -62,6 +62,7 @@ export type AppState = {
   queuedCount: number
   lastError: string | null
   statusText: string
+  sendOnly: boolean
 }
 
 export type TrustedPeer = {

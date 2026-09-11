@@ -23,6 +23,8 @@ const api = {
     ipcRenderer.invoke('argos:installSendTo', label),
   removeSendTo: (label: string): Promise<void> => ipcRenderer.invoke('argos:removeSendTo', label),
   toggleDock: (enabled: boolean): Promise<void> => ipcRenderer.invoke('argos:toggleDock', enabled),
+  setSendOnly: (enabled: boolean): Promise<void> =>
+    ipcRenderer.invoke('argos:setSendOnly', enabled),
   showWindow: (): Promise<void> => ipcRenderer.invoke('argos:showWindow'),
   getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 }

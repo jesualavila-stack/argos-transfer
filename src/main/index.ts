@@ -128,6 +128,9 @@ function registerIpc(engine: TransferEngine): void {
     engine.setDockEnabled(enabled)
     setDockVisible(enabled)
   })
+  ipcMain.handle('argos:setSendOnly', async (_event, enabled: boolean) => {
+    await engine.setSendOnly(enabled)
+  })
   ipcMain.handle('argos:showWindow', () => {
     showMainWindow()
   })

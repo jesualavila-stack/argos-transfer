@@ -12,6 +12,8 @@ export type AppConfig = {
   receiveDir: string
   dockEnabled: boolean
   lastPeerId: string | null
+  lastManualHost: string | null
+  sendOnly: boolean
   trustedPeers: TrustedPeer[]
 }
 
@@ -36,6 +38,8 @@ export function loadConfig(
       tcpPort: DEFAULT_TCP_PORT,
       dockEnabled: true,
       lastPeerId: null,
+      lastManualHost: null,
+      sendOnly: false,
       trustedPeers: []
     }
     writeFileSync(file, JSON.stringify(fresh, null, 2), 'utf8')
@@ -50,6 +54,8 @@ export function loadConfig(
     receiveDir: parsed.receiveDir || defaults.receiveDir,
     dockEnabled: parsed.dockEnabled !== false,
     lastPeerId: parsed.lastPeerId ?? null,
+    lastManualHost: parsed.lastManualHost ?? null,
+    sendOnly: parsed.sendOnly === true,
     trustedPeers: parsed.trustedPeers ?? []
   }
 }

@@ -286,6 +286,12 @@ input[type='text'] {
   padding: 18px;
   color: var(--muted);
   font-size: 13px;
+  display: grid;
+  gap: 12px;
+}
+
+.empty p {
+  margin: 0;
 }
 
 html.dock,

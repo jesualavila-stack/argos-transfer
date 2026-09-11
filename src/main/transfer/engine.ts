@@ -18,6 +18,7 @@ export class TransferEngine extends EventEmitter {
   private sendToInstalled = false
   private packaged = false
   private statusText = 'Buscando dispositivos en la LAN…'
+  private listening = false
 
   constructor(
     private config: AppConfig,
@@ -67,24 +68,36 @@ export class TransferEngine extends EventEmitter {
 
   async start(): Promise<void> {
     mkdirSync(this.config.receiveDir, { recursive: true })
-    const port = await this.server.start(this.config.tcpPort)
-    this.config.tcpPort = port
-    this.discovery.setIdentity({
-      id: this.config.deviceId,
-      name: this.config.deviceName,
-      port,
-      fingerprint: this.tls.fingerprint
-    })
     this.discovery.setTrusted(this.config.trustedPeers)
-    this.discovery.start()
-    this.statusText = 'En la misma red · esperando un par'
-    this.emitState()
+    this.restoreKnownHosts()
+    if (this.config.sendOnly) {
+      this.statusText = 'Solo enviar · sin abrir puertos. Conectá por IP.'
+      this.emitState()
+      saveConfig(this.config)
+      return
+    }
+    await this.startListening()
+  }
+
+  async setSendOnly(enabled: boolean): Promise<void> {
+    this.config.sendOnly = enabled
     saveConfig(this.config)
+    if (enabled) {
+      this.discovery.stop()
+      this.server.stop()
+      this.listening = false
+      this.restoreKnownHosts()
+      this.statusText = 'Solo enviar · sin abrir puertos. Conectá por IP.'
+      this.emitState()
+      return
+    }
+    await this.startListening()
   }
 
   stop(): void {
     this.discovery.stop()
     this.server.stop()
+    this.listening = false
   }
 
   getState(): AppState {
@@ -104,7 +117,8 @@ export class TransferEngine extends EventEmitter {
       packaged: this.packaged,
       queuedCount: this.queued.length,
       lastError: this.lastError,
-      statusText: this.statusText
+      statusText: this.statusText,
+      sendOnly: this.config.sendOnly
     }
   }
 
@@ -154,8 +168,9 @@ export class TransferEngine extends EventEmitter {
   }
 
   connectManual(host: string, port?: number): PeerInfo {
-    const peer = this.discovery.rememberManual(host.trim(), port || this.config.tcpPort)
+    const peer = this.discovery.rememberManual(host.trim(), port || this.config.tcpPort, 'PC Casa')
     this.config.lastPeerId = peer.id
+    this.config.lastManualHost = host.trim()
     saveConfig(this.config)
     this.statusText = `Listo para enviar a ${peer.name}`
     this.emitState()
@@ -213,6 +228,38 @@ export class TransferEngine extends EventEmitter {
       this.statusText = 'No se pudo enviar'
       this.emitState()
       throw error
+    }
+  }
+
+  private async startListening(): Promise<void> {
+    if (this.listening) return
+    const port = await this.server.start(this.config.tcpPort)
+    this.config.tcpPort = port
+    this.discovery.setIdentity({
+      id: this.config.deviceId,
+      name: this.config.deviceName,
+      port,
+      fingerprint: this.tls.fingerprint
+    })
+    this.discovery.start()
+    this.listening = true
+    this.statusText = 'En la misma red · esperando un par'
+    this.emitState()
+    saveConfig(this.config)
+  }
+
+  private restoreKnownHosts(): void {
+    if (this.config.lastManualHost) {
+      this.discovery.rememberManual(this.config.lastManualHost, this.config.tcpPort, 'PC Casa')
+    }
+    for (const trusted of this.config.trustedPeers) {
+      if (trusted.lastHost) {
+        this.discovery.rememberManual(
+          trusted.lastHost,
+          trusted.lastPort || this.config.tcpPort,
+          trusted.name
+        )
+      }
     }
   }
 

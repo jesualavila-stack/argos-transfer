@@ -30,6 +30,10 @@ Si preferís el código (Cursor en la notebook):
 
 En la notebook de trabajo: instalá solo Node si Cursor todavía no lo tiene. No hace falta Rust, Go ni admin.
 
+**No aceptes el aviso de firewall en la notebook** si pide administrador. Esa ventana aparece porque Windows quiere abrir puertos de entrada. La notebook no los necesita: solo envía. Activá ⚙ → **Solo enviar · notebook corporativa** y conectá por IP a la PC casa (`192.168.1.12` en la red actual).
+
+En la PC casa el aviso de redes privadas sí se puede aceptar (ahí ARGOS tiene que recibir).
+
 ## Cómo levantarlo desde la notebook
 
 ```bash

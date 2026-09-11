@@ -10,6 +10,7 @@ const emptyState: AppState = {
   sendToInstalled: false,
   packaged: false,
   queuedCount: 0,
+  sendOnly: false,
   lastError: null,
   statusText: 'Iniciando…'
 }
@@ -110,7 +111,33 @@ export default function App(): React.JSX.Element {
       <section className="card peers">
         {state.peers.length === 0 ? (
           <div className="empty">
-            Ningún dispositivo todavía. Dejá ARGOS abierto en la otra PC o conectá por IP.
+            <p>
+              En la notebook no aceptes el firewall: pide admin y no hace falta. Esta PC casa sí
+              puede recibirlo.
+            </p>
+            <label>
+              IP de la PC Casa
+              <div className="row">
+                <input
+                  placeholder="192.168.1.12"
+                  value={manualHost}
+                  onChange={(event) => setManualHost(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && manualHost.trim()) {
+                      void window.argos.connectManual(manualHost.trim())
+                    }
+                  }}
+                />
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    if (manualHost.trim()) void window.argos.connectManual(manualHost.trim())
+                  }}
+                >
+                  Conectar
+                </button>
+              </div>
+            </label>
           </div>
         ) : (
           state.peers.map((peer) => (
@@ -137,6 +164,14 @@ export default function App(): React.JSX.Element {
 
       {settingsOpen ? (
         <section className="card settings">
+          <div className="toggle">
+            <span>Solo enviar · notebook corporativa (no abre puertos ni pide firewall)</span>
+            <input
+              type="checkbox"
+              checked={state.sendOnly}
+              onChange={(event) => void window.argos.setSendOnly(event.target.checked)}
+            />
+          </div>
           <label>
             Nombre de esta máquina
             <input value={name} onChange={(event) => setName(event.target.value)} />

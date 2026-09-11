@@ -13,6 +13,7 @@ type ArgosApi = {
   installSendTo: (label: string) => Promise<{ ok: boolean; path?: string; message?: string }>
   removeSendTo: (label: string) => Promise<void>
   toggleDock: (enabled: boolean) => Promise<void>
+  setSendOnly: (enabled: boolean) => Promise<void>
   showWindow: () => Promise<void>
   getPathForFile: (file: File) => string
 }
