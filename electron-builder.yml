@@ -1,0 +1,26 @@
+appId: com.argos.transfer
+productName: ARGOS TRANSFER
+directories:
+  buildResources: build
+  output: dist
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!src/main/transfer/*.test.ts'
+asarUnpack:
+  - resources/**
+win:
+  executableName: ArgosTransfer
+  requestedExecutionLevel: asInvoker
+  target:
+    - target: portable
+      arch:
+        - x64
+portable:
+  artifactName: ArgosTransfer-${version}-portable.${ext}
+  requestExecutionLevel: user
+npmRebuild: false

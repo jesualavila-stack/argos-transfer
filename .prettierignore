@@ -1,0 +1,9 @@
+out
+dist
+node_modules
+build
+pnpm-lock.yaml
+package-lock.json
+tsconfig.json
+tsconfig.*.json
+*.md

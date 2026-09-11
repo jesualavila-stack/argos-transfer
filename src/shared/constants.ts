@@ -1,0 +1,9 @@
+export const PROTOCOL_VERSION = 1
+export const MAGIC = 'ARGOS'
+export const DEFAULT_UDP_PORT = 47831
+export const DEFAULT_TCP_PORT = 47832
+export const DEFAULT_PIN = '247467'
+export const HELLO_INTERVAL_MS = 2000
+export const PEER_TTL_MS = 8000
+export const CHUNK_SIZE = 1024 * 1024
+export const APP_ID = 'com.argos.transfer'
