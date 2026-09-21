@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, Menu, nativeImage, Tray } from 'electron'
+import { app, clipboard, dialog, ipcMain, Menu, nativeImage, Tray } from 'electron'
 import { join } from 'node:path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { APP_ID } from '../shared/constants'
@@ -135,6 +135,16 @@ function registerIpc(engine: TransferEngine): void {
     showMainWindow()
   })
   ipcMain.handle('argos:dataDir', () => getDataDir())
+  ipcMain.handle('argos:sendLiveNote', async (_event, text: string) => {
+    await engine.sendLiveNote(text)
+  })
+  ipcMain.handle('argos:clearLiveNotes', async () => {
+    await engine.clearLiveNotes()
+  })
+  ipcMain.handle('argos:clipboardWrite', (_event, text: string) => {
+    clipboard.writeText(text)
+  })
+  ipcMain.handle('argos:clipboardRead', () => clipboard.readText())
 }
 
 function createTray(engine: TransferEngine): void {

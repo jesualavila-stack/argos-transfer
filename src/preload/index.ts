@@ -26,6 +26,10 @@ const api = {
   setSendOnly: (enabled: boolean): Promise<void> =>
     ipcRenderer.invoke('argos:setSendOnly', enabled),
   showWindow: (): Promise<void> => ipcRenderer.invoke('argos:showWindow'),
+  sendLiveNote: (text: string): Promise<void> => ipcRenderer.invoke('argos:sendLiveNote', text),
+  clearLiveNotes: (): Promise<void> => ipcRenderer.invoke('argos:clearLiveNotes'),
+  clipboardWrite: (text: string): Promise<void> => ipcRenderer.invoke('argos:clipboardWrite', text),
+  clipboardRead: (): Promise<string> => ipcRenderer.invoke('argos:clipboardRead'),
   getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 }
 

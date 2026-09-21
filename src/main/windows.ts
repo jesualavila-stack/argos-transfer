@@ -26,9 +26,9 @@ export function createMainWindow(): BrowserWindow {
 
   const win = new BrowserWindow({
     width: 440,
-    height: 720,
+    height: 780,
     minWidth: 400,
-    minHeight: 640,
+    minHeight: 680,
     show: false,
     autoHideMenuBar: true,
     title: 'ARGOS TRANSFER',

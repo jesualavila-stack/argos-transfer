@@ -1,13 +1,24 @@
 import { EventEmitter } from 'node:events'
 import { mkdirSync } from 'node:fs'
-import type { AppState, PeerInfo, TransferSnapshot } from '../../shared/types'
+import type { TLSSocket } from 'node:tls'
+import type {
+  AppState,
+  ControlMessage,
+  LiveNote,
+  PeerInfo,
+  TransferSnapshot
+} from '../../shared/types'
 import type { AppConfig } from '../store'
-import { saveConfig } from '../store'
+import { loadLiveNotes, saveConfig, saveLiveNotes } from '../store'
 import type { TlsMaterial } from '../identity'
 import { Discovery } from './discovery'
 import { TransferServer } from './server'
-import { sendFilesToPeer } from './client'
+import { openLiveChannel, pairWithPeer, sendFilesToPeer } from './client'
 import { collectFiles } from './files'
+import { createLiveNote, LiveLink, mergeNotes } from './live'
+import type { Session } from './framing'
+
+const LINK_RETRY_MS = 5000
 
 export class TransferEngine extends EventEmitter {
   private readonly discovery: Discovery
@@ -19,6 +30,11 @@ export class TransferEngine extends EventEmitter {
   private packaged = false
   private statusText = 'Buscando dispositivos en la LAN…'
   private listening = false
+  private linkTimer: NodeJS.Timeout | null = null
+  private linking = false
+  private liveConnecting = false
+  private readonly liveLinks = new Set<LiveLink>()
+  private liveNotes: LiveNote[] = []
 
   constructor(
     private config: AppConfig,
@@ -55,6 +71,12 @@ export class TransferEngine extends EventEmitter {
       this.transfer = null
       this.emitState()
     })
+    this.server.on(
+      'live',
+      (payload: { session: Session; socket: TLSSocket; peerName: string; peerId: string }) => {
+        this.attachLive(payload.session, payload.socket)
+      }
+    )
   }
 
   setPackaged(value: boolean): void {
@@ -68,15 +90,25 @@ export class TransferEngine extends EventEmitter {
 
   async start(): Promise<void> {
     mkdirSync(this.config.receiveDir, { recursive: true })
+    this.liveNotes = loadLiveNotes()
     this.discovery.setTrusted(this.config.trustedPeers)
     this.restoreKnownHosts()
     if (this.config.sendOnly) {
-      this.statusText = 'Solo enviar · sin abrir puertos. Conectá por IP.'
+      const host = this.getDefaultHost()
+      this.statusText = host
+        ? `Vinculando a PC Casa (${host})…`
+        : 'Solo enviar · sin abrir puertos. Conectá por IP.'
       this.emitState()
       saveConfig(this.config)
+      this.armLinkRetry()
+      await this.linkDefaultPeer()
+      await this.ensureLiveChannel()
       return
     }
     await this.startListening()
+    this.armLinkRetry()
+    await this.linkDefaultPeer()
+    await this.ensureLiveChannel()
   }
 
   async setSendOnly(enabled: boolean): Promise<void> {
@@ -87,14 +119,25 @@ export class TransferEngine extends EventEmitter {
       this.server.stop()
       this.listening = false
       this.restoreKnownHosts()
-      this.statusText = 'Solo enviar · sin abrir puertos. Conectá por IP.'
+      const host = this.getDefaultHost()
+      this.statusText = host
+        ? `Vinculando a PC Casa (${host})…`
+        : 'Solo enviar · sin abrir puertos. Conectá por IP.'
       this.emitState()
+      this.armLinkRetry()
+      await this.linkDefaultPeer()
+      await this.ensureLiveChannel()
       return
     }
     await this.startListening()
+    await this.ensureLiveChannel()
   }
 
   stop(): void {
+    if (this.linkTimer) clearInterval(this.linkTimer)
+    this.linkTimer = null
+    for (const link of this.liveLinks) link.close()
+    this.liveLinks.clear()
     this.discovery.stop()
     this.server.stop()
     this.listening = false
@@ -118,7 +161,9 @@ export class TransferEngine extends EventEmitter {
       queuedCount: this.queued.length,
       lastError: this.lastError,
       statusText: this.statusText,
-      sendOnly: this.config.sendOnly
+      sendOnly: this.config.sendOnly,
+      liveNotes: this.liveNotes,
+      liveConnected: this.isLiveConnected()
     }
   }
 
@@ -167,14 +212,47 @@ export class TransferEngine extends EventEmitter {
     this.emitState()
   }
 
-  connectManual(host: string, port?: number): PeerInfo {
-    const peer = this.discovery.rememberManual(host.trim(), port || this.config.tcpPort, 'PC Casa')
+  async connectManual(host: string, port?: number): Promise<PeerInfo> {
+    const clean = host.trim()
+    const tcpPort = port || this.config.tcpPort
+    const peer = this.discovery.rememberManual(clean, tcpPort, 'PC Casa')
+    this.discovery.markLinked(peer.id, false)
     this.config.lastPeerId = peer.id
-    this.config.lastManualHost = host.trim()
+    this.config.lastManualHost = clean
     saveConfig(this.config)
-    this.statusText = `Listo para enviar a ${peer.name}`
+    this.armLinkRetry()
+    await this.linkDefaultPeer()
+    await this.ensureLiveChannel()
+    return this.discovery.get(peer.id) || peer
+  }
+
+  async sendLiveNote(text: string): Promise<void> {
+    const note = createLiveNote(text, this.config.deviceId, this.config.deviceName)
+    if (!note) throw new Error('Pegá o escribí algo para compartir')
+    if (!this.isLiveConnected()) {
+      await this.ensureLiveChannel()
+    }
+    if (!this.isLiveConnected()) {
+      throw new Error('Pizarra desconectada. Conectá a la PC Casa primero.')
+    }
+    this.addNote(note)
+    await this.broadcast({
+      type: 'live-note',
+      id: note.id,
+      text: note.text,
+      fromId: note.fromId,
+      fromName: note.fromName,
+      at: note.at
+    })
+  }
+
+  async clearLiveNotes(): Promise<void> {
+    this.liveNotes = []
+    saveLiveNotes(this.liveNotes)
     this.emitState()
-    return peer
+    if (this.isLiveConnected()) {
+      await this.broadcast({ type: 'live-clear' })
+    }
   }
 
   async send(paths?: string[], peerId?: string): Promise<void> {
@@ -226,6 +304,7 @@ export class TransferEngine extends EventEmitter {
       this.transfer = null
       this.lastError = error instanceof Error ? error.message : String(error)
       this.statusText = 'No se pudo enviar'
+      this.discovery.markLinked(peer.id, false)
       this.emitState()
       throw error
     }
@@ -249,18 +328,183 @@ export class TransferEngine extends EventEmitter {
   }
 
   private restoreKnownHosts(): void {
-    if (this.config.lastManualHost) {
-      this.discovery.rememberManual(this.config.lastManualHost, this.config.tcpPort, 'PC Casa')
+    const host = this.getDefaultHost()
+    if (host) {
+      this.config.lastManualHost = host
+      const peer = this.discovery.rememberManual(host, this.config.tcpPort, 'PC Casa')
+      this.config.lastPeerId = peer.id
     }
     for (const trusted of this.config.trustedPeers) {
       if (trusted.lastHost) {
         this.discovery.rememberManual(
           trusted.lastHost,
           trusted.lastPort || this.config.tcpPort,
-          trusted.name
+          trusted.name || 'PC Casa'
         )
       }
     }
+  }
+
+  private getDefaultHost(): string | null {
+    return (
+      this.config.lastManualHost ||
+      this.config.trustedPeers.find((peer) => peer.lastHost)?.lastHost ||
+      null
+    )
+  }
+
+  private armLinkRetry(): void {
+    if (this.linkTimer) return
+    this.linkTimer = setInterval(() => {
+      const host = this.getDefaultHost()
+      if (!host) return
+      const peer = this.discovery.get(`manual:${host}:${this.config.tcpPort}`)
+      if (!peer?.linked) {
+        void this.linkDefaultPeer()
+        return
+      }
+      if (!this.isLiveConnected()) void this.ensureLiveChannel()
+    }, LINK_RETRY_MS)
+  }
+
+  private async linkDefaultPeer(): Promise<void> {
+    const host = this.getDefaultHost()
+    if (!host || this.linking) return
+    const port = this.config.tcpPort
+    const peer = this.discovery.rememberManual(host, port, 'PC Casa')
+    this.linking = true
+    this.statusText = `Vinculando a ${peer.name} (${host})…`
+    this.emitState()
+    try {
+      const remote = await pairWithPeer({
+        host,
+        port,
+        identity: {
+          id: this.config.deviceId,
+          name: this.config.deviceName,
+          pin: this.config.pin,
+          fingerprint: this.tls.fingerprint
+        }
+      })
+      this.discovery.markLinked(peer.id, true, {
+        name: remote.name || 'PC Casa',
+        fingerprint: remote.fingerprint
+      })
+      this.config.lastPeerId = peer.id
+      this.config.lastManualHost = host
+      const trustedName = remote.name || 'PC Casa'
+      const existing = this.config.trustedPeers.filter(
+        (item) => item.id !== peer.id && item.lastHost !== host
+      )
+      existing.push({
+        id: peer.id,
+        name: trustedName,
+        fingerprint: remote.fingerprint,
+        lastHost: host,
+        lastPort: port
+      })
+      this.config.trustedPeers = existing
+      this.discovery.setTrusted(existing)
+      saveConfig(this.config)
+      this.lastError = null
+      this.statusText = `${trustedName} · Conectada`
+      this.emitState()
+      await this.ensureLiveChannel()
+    } catch (error) {
+      this.discovery.markLinked(peer.id, false)
+      this.lastError = error instanceof Error ? error.message : String(error)
+      this.statusText = `Sin conexión con PC Casa (${host})`
+      this.emitState()
+    } finally {
+      this.linking = false
+    }
+  }
+
+  private isLiveConnected(): boolean {
+    return [...this.liveLinks].some((link) => link.open)
+  }
+
+  private identity(): { id: string; name: string; pin: string; fingerprint: string } {
+    return {
+      id: this.config.deviceId,
+      name: this.config.deviceName,
+      pin: this.config.pin,
+      fingerprint: this.tls.fingerprint
+    }
+  }
+
+  private async ensureLiveChannel(): Promise<void> {
+    if (this.isLiveConnected() || this.liveConnecting) return
+    const peer = this.resolvePeer()
+    if (!peer) return
+    this.liveConnecting = true
+    try {
+      const channel = await openLiveChannel({
+        host: peer.host,
+        port: peer.port,
+        identity: this.identity()
+      })
+      this.attachLive(channel.session, channel.socket)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.includes('pizarra en vivo')) {
+        this.lastError = message
+        this.emitState()
+      }
+    } finally {
+      this.liveConnecting = false
+    }
+  }
+
+  private attachLive(session: Session, socket: TLSSocket): void {
+    const link = new LiveLink(
+      session,
+      socket,
+      (msg) => this.handleLiveMessage(msg),
+      () => {
+        this.liveLinks.delete(link)
+        this.emitState()
+      }
+    )
+    this.liveLinks.add(link)
+    this.lastError = null
+    void link.send({ type: 'live-sync', notes: this.liveNotes }).catch(() => link.close())
+    this.emitState()
+  }
+
+  private handleLiveMessage(msg: ControlMessage): void {
+    if (msg.type === 'live-note') {
+      this.addNote({
+        id: msg.id,
+        text: msg.text,
+        fromId: msg.fromId,
+        fromName: msg.fromName,
+        at: msg.at
+      })
+      return
+    }
+    if (msg.type === 'live-sync') {
+      this.liveNotes = mergeNotes(this.liveNotes, msg.notes)
+      saveLiveNotes(this.liveNotes)
+      this.emitState()
+      return
+    }
+    if (msg.type === 'live-clear') {
+      this.liveNotes = []
+      saveLiveNotes(this.liveNotes)
+      this.emitState()
+    }
+  }
+
+  private addNote(note: LiveNote): void {
+    this.liveNotes = mergeNotes(this.liveNotes, [note])
+    saveLiveNotes(this.liveNotes)
+    this.emitState()
+  }
+
+  private async broadcast(msg: ControlMessage): Promise<void> {
+    const links = [...this.liveLinks].filter((link) => link.open)
+    await Promise.all(links.map((link) => link.send(msg).catch(() => link.close())))
   }
 
   private resolvePeer(peerId?: string): PeerInfo | undefined {
@@ -286,7 +530,9 @@ export class TransferEngine extends EventEmitter {
     })
     this.config.trustedPeers = next
     this.config.lastPeerId = peer.id
+    this.config.lastManualHost = peer.host
     this.discovery.setTrusted(next)
+    this.discovery.markLinked(peer.id, true)
     saveConfig(this.config)
   }
 

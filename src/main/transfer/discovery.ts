@@ -54,11 +54,23 @@ export class Discovery extends EventEmitter {
       port,
       fingerprint: existing?.fingerprint || '',
       lastSeen: Date.now(),
-      trusted: existing?.trusted || this.trusted.some((item) => item.lastHost === host)
+      trusted: existing?.trusted || this.trusted.some((item) => item.lastHost === host),
+      linked: existing?.linked ?? false
     }
     this.peers.set(id, peer)
     this.emit('peers', this.list())
     return peer
+  }
+
+  markLinked(id: string, linked: boolean, extras?: Partial<Pick<PeerInfo, 'name' | 'fingerprint'>>): void {
+    const peer = this.peers.get(id)
+    if (!peer) return
+    peer.linked = linked
+    peer.lastSeen = Date.now()
+    if (extras?.name) peer.name = extras.name
+    if (extras?.fingerprint) peer.fingerprint = extras.fingerprint
+    this.peers.set(id, peer)
+    this.emit('peers', this.list())
   }
 
   start(): void {
@@ -81,7 +93,8 @@ export class Discovery extends EventEmitter {
           port: packet.port,
           fingerprint: packet.fingerprint,
           lastSeen: Date.now(),
-          trusted: trusted || Boolean(previous?.trusted)
+          trusted: trusted || Boolean(previous?.trusted),
+          linked: true
         })
         this.emit('peers', this.list())
       } catch {

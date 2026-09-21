@@ -322,3 +322,124 @@ body.dock,
 .dock-strip.over {
   background: rgba(61, 139, 253, 0.35);
 }
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tabs button {
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tabs button.active {
+  color: var(--text);
+  border-color: rgba(61, 139, 253, 0.55);
+  background: rgba(61, 139, 253, 0.14);
+}
+
+.live {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 360px;
+  flex: 1;
+}
+
+.live-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.live-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 160px;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.live-empty {
+  margin: 18px 8px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.live-note {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #0f141b;
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.live-note.mine {
+  border-color: rgba(61, 139, 253, 0.35);
+  background: rgba(61, 139, 253, 0.08);
+}
+
+.live-note.copied {
+  border-color: var(--ok);
+}
+
+.live-note-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.live-note-meta strong {
+  color: var(--text);
+}
+
+.live-note-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.live-draft {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #0f141b;
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.live-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.live-send {
+  flex: 1;
+}

@@ -14,6 +14,14 @@ export type HelloPacket = {
   fingerprint: string
 }
 
+export type LiveNote = {
+  id: string
+  text: string
+  fromId: string
+  fromName: string
+  at: number
+}
+
 export type ControlMessage =
   | { type: 'auth'; id: string; name: string; pin: string }
   | { type: 'auth-ok'; id: string; name: string; fingerprint: string }
@@ -25,6 +33,13 @@ export type ControlMessage =
   | { type: 'file-end' }
   | { type: 'done' }
   | { type: 'error'; message: string }
+  | { type: 'live-open' }
+  | { type: 'live-ok' }
+  | { type: 'live-ping' }
+  | { type: 'live-pong' }
+  | { type: 'live-note'; id: string; text: string; fromId: string; fromName: string; at: number }
+  | { type: 'live-sync'; notes: LiveNote[] }
+  | { type: 'live-clear' }
 
 export type PeerInfo = {
   id: string
@@ -34,6 +49,7 @@ export type PeerInfo = {
   fingerprint: string
   lastSeen: number
   trusted: boolean
+  linked: boolean
 }
 
 export type TransferSnapshot = {
@@ -63,6 +79,8 @@ export type AppState = {
   lastError: string | null
   statusText: string
   sendOnly: boolean
+  liveNotes: LiveNote[]
+  liveConnected: boolean
 }
 
 export type TrustedPeer = {

@@ -73,6 +73,7 @@ export class TransferServer extends EventEmitter {
 
   private async handle(socket: TLSSocket): Promise<void> {
     const session = new Session(socket)
+    let keepOpen = false
     try {
       const first = await session.nextMessage()
       if (first.type !== 'auth') {
@@ -93,12 +94,23 @@ export class TransferServer extends EventEmitter {
         fingerprint: this.identity.fingerprint
       })
 
-      const offer = await session.nextMessage()
-      if (offer.type !== 'offer') {
-        await session.send({ type: 'reject', reason: 'Se esperaba una oferta de archivos' })
-        socket.end()
+      const second = await session.nextMessage()
+      if (second.type === 'live-open') {
+        await session.send({ type: 'live-ok' })
+        keepOpen = true
+        this.emit('live', {
+          session,
+          socket,
+          peerName: first.name,
+          peerId: first.id
+        })
         return
       }
+      if (second.type !== 'offer') {
+        await session.send({ type: 'reject', reason: 'Se esperaba una oferta de archivos' })
+        return
+      }
+      const offer = second
 
       const total = offer.files.reduce((sum, file) => sum + file.size, 0)
       this.emit('incoming', { peerName: first.name, files: offer.files, total })
@@ -138,7 +150,7 @@ export class TransferServer extends EventEmitter {
         // socket already gone
       }
     } finally {
-      socket.end()
+      if (!keepOpen) socket.end()
     }
   }
 

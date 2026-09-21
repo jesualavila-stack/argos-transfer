@@ -21,6 +21,20 @@ test('FrameReader reensambla frames cortados', () => {
   }
 })
 
+test('encodeFrame acepta una nota de pizarra', () => {
+  const buf = encodeFrame({
+    type: 'live-note',
+    id: 'n1',
+    text: 'hola',
+    fromId: 'a',
+    fromName: 'Notebook',
+    at: 1
+  })
+  const parsed = JSON.parse(buf.subarray(4).toString('utf8')) as { type: string; text: string }
+  assert.equal(parsed.type, 'live-note')
+  assert.equal(parsed.text, 'hola')
+})
+
 test('FrameReader trata file-begin como prefijo de bytes crudos', () => {
   const header = encodeFrame({
     type: 'file-begin',

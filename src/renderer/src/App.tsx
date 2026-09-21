@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AppState } from '../../shared/types'
+import LiveBoard from './LiveBoard'
 
 const emptyState: AppState = {
   me: { id: '', name: '', pin: '', port: 0, fingerprint: '' },
@@ -12,7 +13,9 @@ const emptyState: AppState = {
   queuedCount: 0,
   sendOnly: false,
   lastError: null,
-  statusText: 'Iniciando…'
+  statusText: 'Iniciando…',
+  liveNotes: [],
+  liveConnected: false
 }
 
 function formatSpeed(bytesPerSec: number): string {
@@ -34,9 +37,10 @@ export default function App(): React.JSX.Element {
   const [over, setOver] = useState(false)
   const [name, setName] = useState('')
   const [pin, setPin] = useState('')
-  const [manualHost, setManualHost] = useState('')
+  const [manualHost, setManualHost] = useState('192.168.1.12')
   const [busy, setBusy] = useState(false)
   const [sendToMessage, setSendToMessage] = useState('')
+  const [view, setView] = useState<'files' | 'live'>('files')
 
   useEffect(() => {
     void window.argos.getState().then((next) => {
@@ -147,7 +151,7 @@ export default function App(): React.JSX.Element {
               onClick={() => setSelectedPeer(peer.id)}
             >
               <div className="peer-main">
-                <span className="dot" />
+                <span className={peer.linked ? 'dot' : 'dot off'} />
                 <div>
                   <strong>{peer.name}</strong>
                   <span>
@@ -156,11 +160,30 @@ export default function App(): React.JSX.Element {
                   </span>
                 </div>
               </div>
-              <span>Conectada</span>
+              <span>{peer.linked ? 'Conectada' : 'Sin conexión'}</span>
             </button>
           ))
         )}
       </section>
+
+      {!settingsOpen ? (
+        <nav className="tabs">
+          <button
+            type="button"
+            className={view === 'files' ? 'active' : ''}
+            onClick={() => setView('files')}
+          >
+            Archivos
+          </button>
+          <button
+            type="button"
+            className={view === 'live' ? 'active' : ''}
+            onClick={() => setView('live')}
+          >
+            Pizarra
+          </button>
+        </nav>
+      ) : null}
 
       {settingsOpen ? (
         <section className="card settings">
@@ -241,6 +264,8 @@ export default function App(): React.JSX.Element {
           </button>
           {sendToMessage ? <p className="hint">{sendToMessage}</p> : null}
         </section>
+      ) : view === 'live' ? (
+        <LiveBoard state={state} />
       ) : (
         <>
           <section

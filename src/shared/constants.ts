@@ -7,3 +7,6 @@ export const HELLO_INTERVAL_MS = 2000
 export const PEER_TTL_MS = 8000
 export const CHUNK_SIZE = 1024 * 1024
 export const APP_ID = 'com.argos.transfer'
+export const LIVE_MAX_CHARS = 32_000
+export const LIVE_MAX_NOTES = 80
+export const LIVE_PING_MS = 15_000
