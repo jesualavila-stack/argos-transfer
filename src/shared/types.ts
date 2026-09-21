@@ -14,9 +14,13 @@ export type HelloPacket = {
   fingerprint: string
 }
 
+export type LiveNoteKind = 'text' | 'image'
+
 export type LiveNote = {
   id: string
+  kind: LiveNoteKind
   text: string
+  image?: string
   fromId: string
   fromName: string
   at: number
@@ -37,7 +41,16 @@ export type ControlMessage =
   | { type: 'live-ok' }
   | { type: 'live-ping' }
   | { type: 'live-pong' }
-  | { type: 'live-note'; id: string; text: string; fromId: string; fromName: string; at: number }
+  | {
+      type: 'live-note'
+      id: string
+      kind?: LiveNoteKind
+      text: string
+      image?: string
+      fromId: string
+      fromName: string
+      at: number
+    }
   | { type: 'live-sync'; notes: LiveNote[] }
   | { type: 'live-clear' }
 

@@ -423,6 +423,35 @@ body.dock,
   line-height: 1.4;
 }
 
+.live-note.has-image {
+  gap: 10px;
+}
+
+.live-note-image {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #0a0e14;
+}
+
+.live-draft-image {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0f141b;
+}
+
+.live-draft-image img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
 .live-draft {
   width: 100%;
   min-height: 88px;

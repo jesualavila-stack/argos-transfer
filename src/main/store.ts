@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { app } from 'electron'
 import { DEFAULT_PIN, DEFAULT_TCP_PORT, LIVE_MAX_NOTES } from '../shared/constants'
 import type { LiveNote, TrustedPeer } from '../shared/types'
+import { normalizeLiveNote } from './transfer/live'
 
 export type AppConfig = {
   deviceId: string
@@ -73,14 +74,8 @@ export function loadLiveNotes(): LiveNote[] {
     const parsed = JSON.parse(readFileSync(file, 'utf8')) as unknown
     if (!Array.isArray(parsed)) return []
     return parsed
-      .filter((item): item is LiveNote => {
-        return (
-          Boolean(item) &&
-          typeof item === 'object' &&
-          typeof (item as LiveNote).id === 'string' &&
-          typeof (item as LiveNote).text === 'string'
-        )
-      })
+      .map((item) => normalizeLiveNote(item as Partial<LiveNote>))
+      .filter((item): item is LiveNote => Boolean(item))
       .slice(-LIVE_MAX_NOTES)
   } catch {
     return []

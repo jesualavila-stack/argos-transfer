@@ -1,6 +1,8 @@
 import type { Duplex } from 'node:stream'
 import type { ControlMessage } from '../../shared/types'
 
+const FRAME_MAX = 12 * 1024 * 1024
+
 export function encodeFrame(msg: ControlMessage): Buffer {
   const json = Buffer.from(JSON.stringify(msg), 'utf8')
   const header = Buffer.alloc(4)
@@ -33,7 +35,7 @@ export class FrameReader {
 
       if (this.buf.length < 4) break
       const len = this.buf.readUInt32BE(0)
-      if (len > 8 * 1024 * 1024) {
+      if (len > FRAME_MAX) {
         throw new Error('Frame demasiado grande')
       }
       if (this.buf.length < 4 + len) break

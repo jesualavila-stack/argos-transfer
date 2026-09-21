@@ -15,10 +15,13 @@ type ArgosApi = {
   toggleDock: (enabled: boolean) => Promise<void>
   setSendOnly: (enabled: boolean) => Promise<void>
   showWindow: () => Promise<void>
-  sendLiveNote: (text: string) => Promise<void>
+  sendLiveNote: (payload: string | { text?: string; image?: string }) => Promise<void>
   clearLiveNotes: () => Promise<void>
   clipboardWrite: (text: string) => Promise<void>
+  clipboardWriteImage: (dataUrl: string) => Promise<void>
   clipboardRead: () => Promise<string>
+  clipboardReadImage: () => Promise<string | null>
+  compressImage: (dataUrl: string) => Promise<string | null>
   getPathForFile: (file: File) => string
 }
 

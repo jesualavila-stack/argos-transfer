@@ -9,4 +9,7 @@ export const CHUNK_SIZE = 1024 * 1024
 export const APP_ID = 'com.argos.transfer'
 export const LIVE_MAX_CHARS = 32_000
 export const LIVE_MAX_NOTES = 80
+export const LIVE_MAX_IMAGE_BYTES = 2.5 * 1024 * 1024
+export const LIVE_JPEG_QUALITY = 72
+export const LIVE_IMAGE_MAX_EDGE = 1920
 export const LIVE_PING_MS = 15_000

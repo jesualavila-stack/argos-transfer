@@ -35,6 +35,27 @@ test('encodeFrame acepta una nota de pizarra', () => {
   assert.equal(parsed.text, 'hola')
 })
 
+test('encodeFrame acepta una nota de pizarra con imagen', () => {
+  const buf = encodeFrame({
+    type: 'live-note',
+    id: 'n2',
+    kind: 'image',
+    text: 'Captura',
+    image: 'data:image/jpeg;base64,/9j/4AAQ',
+    fromId: 'a',
+    fromName: 'Notebook',
+    at: 1
+  })
+  const parsed = JSON.parse(buf.subarray(4).toString('utf8')) as {
+    type: string
+    kind?: string
+    image?: string
+  }
+  assert.equal(parsed.type, 'live-note')
+  assert.equal(parsed.kind, 'image')
+  assert.ok(parsed.image?.startsWith('data:image/jpeg'))
+})
+
 test('FrameReader trata file-begin como prefijo de bytes crudos', () => {
   const header = encodeFrame({
     type: 'file-begin',

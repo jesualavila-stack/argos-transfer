@@ -15,7 +15,13 @@ import { Discovery } from './discovery'
 import { TransferServer } from './server'
 import { openLiveChannel, pairWithPeer, sendFilesToPeer } from './client'
 import { collectFiles } from './files'
-import { createLiveNote, LiveLink, mergeNotes } from './live'
+import {
+  createLiveImageNote,
+  createLiveNote,
+  LiveLink,
+  mergeNotes,
+  normalizeLiveNote
+} from './live'
 import type { Session } from './framing'
 
 const LINK_RETRY_MS = 5000
@@ -226,9 +232,12 @@ export class TransferEngine extends EventEmitter {
     return this.discovery.get(peer.id) || peer
   }
 
-  async sendLiveNote(text: string): Promise<void> {
-    const note = createLiveNote(text, this.config.deviceId, this.config.deviceName)
-    if (!note) throw new Error('Pegá o escribí algo para compartir')
+  async sendLiveNote(payload: string | { text?: string; image?: string }): Promise<void> {
+    const input = typeof payload === 'string' ? { text: payload } : payload
+    const note = input.image
+      ? createLiveImageNote(input.image, this.config.deviceId, this.config.deviceName, input.text)
+      : createLiveNote(input.text || '', this.config.deviceId, this.config.deviceName)
+    if (!note) throw new Error('Pegá texto o una captura para compartir')
     if (!this.isLiveConnected()) {
       await this.ensureLiveChannel()
     }
@@ -239,7 +248,9 @@ export class TransferEngine extends EventEmitter {
     await this.broadcast({
       type: 'live-note',
       id: note.id,
+      kind: note.kind,
       text: note.text,
+      image: note.image,
       fromId: note.fromId,
       fromName: note.fromName,
       at: note.at
@@ -474,13 +485,16 @@ export class TransferEngine extends EventEmitter {
 
   private handleLiveMessage(msg: ControlMessage): void {
     if (msg.type === 'live-note') {
-      this.addNote({
+      const note = normalizeLiveNote({
         id: msg.id,
+        kind: msg.kind,
         text: msg.text,
+        image: msg.image,
         fromId: msg.fromId,
         fromName: msg.fromName,
         at: msg.at
       })
+      if (note) this.addNote(note)
       return
     }
     if (msg.type === 'live-sync') {

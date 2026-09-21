@@ -4,6 +4,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { APP_ID } from '../shared/constants'
 import type { AppState } from '../shared/types'
 import { parseSendArgs } from './argv'
+import { compressClipboardImage, imageFromDataUrl } from './clipboardImage'
 import { newDeviceId, loadOrCreateTls, newPin, suggestDeviceName } from './identity'
 import { loadConfig, getDataDir } from './store'
 import { installSendTo, isSendToInstalled, removeSendTo } from './sendTo'
@@ -135,16 +136,33 @@ function registerIpc(engine: TransferEngine): void {
     showMainWindow()
   })
   ipcMain.handle('argos:dataDir', () => getDataDir())
-  ipcMain.handle('argos:sendLiveNote', async (_event, text: string) => {
-    await engine.sendLiveNote(text)
-  })
+  ipcMain.handle(
+    'argos:sendLiveNote',
+    async (_event, payload: string | { text?: string; image?: string }) => {
+      await engine.sendLiveNote(payload)
+    }
+  )
   ipcMain.handle('argos:clearLiveNotes', async () => {
     await engine.clearLiveNotes()
   })
   ipcMain.handle('argos:clipboardWrite', (_event, text: string) => {
     clipboard.writeText(text)
   })
+  ipcMain.handle('argos:clipboardWriteImage', (_event, dataUrl: string) => {
+    const image = imageFromDataUrl(dataUrl)
+    if (!image) throw new Error('Imagen inválida')
+    clipboard.writeImage(image)
+  })
   ipcMain.handle('argos:clipboardRead', () => clipboard.readText())
+  ipcMain.handle('argos:clipboardReadImage', () => {
+    const image = clipboard.readImage()
+    return compressClipboardImage(image)
+  })
+  ipcMain.handle('argos:compressImage', (_event, dataUrl: string) => {
+    const image = imageFromDataUrl(dataUrl)
+    if (!image) return null
+    return compressClipboardImage(image)
+  })
 }
 
 function createTray(engine: TransferEngine): void {

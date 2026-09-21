@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import type { TLSSocket } from 'node:tls'
-import { LIVE_MAX_CHARS, LIVE_MAX_NOTES, LIVE_PING_MS } from '../../shared/constants'
+import {
+  LIVE_MAX_CHARS,
+  LIVE_MAX_IMAGE_BYTES,
+  LIVE_MAX_NOTES,
+  LIVE_PING_MS
+} from '../../shared/constants'
 import type { ControlMessage, LiveNote } from '../../shared/types'
 import type { Session } from './framing'
 
@@ -13,6 +18,7 @@ export function createLiveNote(text: string, fromId: string, fromName: string): 
   if (!clean) return null
   return {
     id: randomUUID(),
+    kind: 'text',
     text: clean,
     fromId,
     fromName,
@@ -20,17 +26,53 @@ export function createLiveNote(text: string, fromId: string, fromName: string): 
   }
 }
 
+export function createLiveImageNote(
+  image: string,
+  fromId: string,
+  fromName: string,
+  caption = ''
+): LiveNote | null {
+  if (!isDataImage(image)) return null
+  if (Buffer.byteLength(image, 'utf8') > LIVE_MAX_IMAGE_BYTES * 1.4) return null
+  return {
+    id: randomUUID(),
+    kind: 'image',
+    text: normalizeNoteText(caption) || 'Captura',
+    image,
+    fromId,
+    fromName,
+    at: Date.now()
+  }
+}
+
+export function isDataImage(value: string | undefined): boolean {
+  return Boolean(value && /^data:image\/(png|jpe?g|webp);base64,/i.test(value))
+}
+
+export function normalizeLiveNote(note: Partial<LiveNote>): LiveNote | null {
+  if (!note.id) return null
+  const image = isDataImage(note.image) ? note.image : undefined
+  const kind = image ? 'image' : 'text'
+  const text = normalizeNoteText(note.text || (kind === 'image' ? 'Captura' : ''))
+  if (kind === 'text' && !text) return null
+  if (kind === 'image' && !image) return null
+  return {
+    id: note.id,
+    kind,
+    text,
+    image,
+    fromId: note.fromId || '',
+    fromName: note.fromName || 'PC',
+    at: typeof note.at === 'number' ? note.at : Date.now()
+  }
+}
+
 export function mergeNotes(current: LiveNote[], incoming: LiveNote[]): LiveNote[] {
   const byId = new Map(current.map((note) => [note.id, note]))
   for (const note of incoming) {
-    if (!note.id || !note.text) continue
-    byId.set(note.id, {
-      id: note.id,
-      text: normalizeNoteText(note.text),
-      fromId: note.fromId || '',
-      fromName: note.fromName || 'PC',
-      at: typeof note.at === 'number' ? note.at : Date.now()
-    })
+    const clean = normalizeLiveNote(note)
+    if (!clean) continue
+    byId.set(clean.id, clean)
   }
   return [...byId.values()].sort((a, b) => a.at - b.at).slice(-LIVE_MAX_NOTES)
 }

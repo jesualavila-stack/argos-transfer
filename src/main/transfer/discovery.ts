@@ -62,7 +62,11 @@ export class Discovery extends EventEmitter {
     return peer
   }
 
-  markLinked(id: string, linked: boolean, extras?: Partial<Pick<PeerInfo, 'name' | 'fingerprint'>>): void {
+  markLinked(
+    id: string,
+    linked: boolean,
+    extras?: Partial<Pick<PeerInfo, 'name' | 'fingerprint'>>
+  ): void {
     const peer = this.peers.get(id)
     if (!peer) return
     peer.linked = linked
