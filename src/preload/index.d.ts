@@ -22,6 +22,11 @@ type ArgosApi = {
   clipboardRead: () => Promise<string>
   clipboardReadImage: () => Promise<string | null>
   compressImage: (dataUrl: string) => Promise<string | null>
+  refreshInbox: () => Promise<unknown>
+  openInboxItem: (filePath: string) => Promise<void>
+  revealInboxItem: (filePath: string) => Promise<void>
+  openReceiveDir: () => Promise<void>
+  startDrag: (filePath: string) => void
   getPathForFile: (file: File) => string
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AppState } from '../../shared/types'
 import LiveBoard from './LiveBoard'
+import InboxBoard from './InboxBoard'
 
 const emptyState: AppState = {
   me: { id: '', name: '', pin: '', port: 0, fingerprint: '' },
@@ -15,7 +16,8 @@ const emptyState: AppState = {
   lastError: null,
   statusText: 'Iniciando…',
   liveNotes: [],
-  liveConnected: false
+  liveConnected: false,
+  inbox: []
 }
 
 function formatSpeed(bytesPerSec: number): string {
@@ -40,7 +42,7 @@ export default function App(): React.JSX.Element {
   const [manualHost, setManualHost] = useState('192.168.1.12')
   const [busy, setBusy] = useState(false)
   const [sendToMessage, setSendToMessage] = useState('')
-  const [view, setView] = useState<'files' | 'live'>('files')
+  const [view, setView] = useState<'files' | 'live' | 'inbox'>('files')
 
   useEffect(() => {
     void window.argos.getState().then((next) => {
@@ -182,6 +184,13 @@ export default function App(): React.JSX.Element {
           >
             Pizarra
           </button>
+          <button
+            type="button"
+            className={view === 'inbox' ? 'active' : ''}
+            onClick={() => setView('inbox')}
+          >
+            Recibidos{state.inbox.length > 0 ? ` (${state.inbox.length})` : ''}
+          </button>
         </nav>
       ) : null}
 
@@ -266,6 +275,8 @@ export default function App(): React.JSX.Element {
         </section>
       ) : view === 'live' ? (
         <LiveBoard state={state} />
+      ) : view === 'inbox' ? (
+        <InboxBoard state={state} />
       ) : (
         <>
           <section

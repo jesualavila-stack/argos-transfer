@@ -1,4 +1,5 @@
-import { app, clipboard, dialog, ipcMain, Menu, nativeImage, Tray } from 'electron'
+import { app, clipboard, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { APP_ID } from '../shared/constants'
@@ -8,6 +9,7 @@ import { compressClipboardImage, imageFromDataUrl } from './clipboardImage'
 import { newDeviceId, loadOrCreateTls, newPin, suggestDeviceName } from './identity'
 import { loadConfig, getDataDir } from './store'
 import { installSendTo, isSendToInstalled, removeSendTo } from './sendTo'
+import { isPathInsideDir } from './transfer/files'
 import { TransferEngine } from './transfer/engine'
 import {
   broadcastState,
@@ -163,6 +165,45 @@ function registerIpc(engine: TransferEngine): void {
     if (!image) return null
     return compressClipboardImage(image)
   })
+  ipcMain.handle('argos:refreshInbox', async () => {
+    await engine.refreshInbox()
+    return engine.getState().inbox
+  })
+  ipcMain.handle('argos:openInboxItem', async (_event, filePath: string) => {
+    assertInboxPath(engine, filePath)
+    const result = await shell.openPath(filePath)
+    if (result) throw new Error(result)
+  })
+  ipcMain.handle('argos:revealInboxItem', (_event, filePath: string) => {
+    assertInboxPath(engine, filePath)
+    shell.showItemInFolder(filePath)
+  })
+  ipcMain.handle('argos:openReceiveDir', async () => {
+    const dir = engine.getReceiveDir()
+    const result = await shell.openPath(dir)
+    if (result) throw new Error(result)
+  })
+  ipcMain.on('argos:startDrag', (event, filePath: string) => {
+    try {
+      assertInboxPath(engine, filePath)
+      const iconPath = join(process.cwd(), 'resources', 'icon.png')
+      const icon = existsSync(iconPath)
+        ? nativeImage.createFromPath(iconPath).resize({ width: 32, height: 32 })
+        : nativeImage.createFromDataURL(trayPng()).resize({ width: 32, height: 32 })
+      event.sender.startDrag({
+        file: filePath,
+        icon
+      })
+    } catch {
+      // ignore invalid drag
+    }
+  })
+}
+
+function assertInboxPath(engine: TransferEngine, filePath: string): void {
+  if (!filePath || !existsSync(filePath) || !isPathInsideDir(filePath, engine.getReceiveDir())) {
+    throw new Error('Archivo fuera de la bandeja')
+  }
 }
 
 function createTray(engine: TransferEngine): void {

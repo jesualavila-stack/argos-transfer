@@ -1,3 +1,11 @@
+export type InboxItem = {
+  path: string
+  name: string
+  relativePath: string
+  size: number
+  mtime: number
+}
+
 export type FileMeta = {
   name: string
   relativePath: string
@@ -94,6 +102,7 @@ export type AppState = {
   sendOnly: boolean
   liveNotes: LiveNote[]
   liveConnected: boolean
+  inbox: InboxItem[]
 }
 
 export type TrustedPeer = {

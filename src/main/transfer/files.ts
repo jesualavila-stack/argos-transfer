@@ -1,7 +1,9 @@
 import { createWriteStream, mkdirSync, statSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { readdir } from 'node:fs/promises'
-import type { FileMeta } from '../../shared/types'
+import type { FileMeta, InboxItem } from '../../shared/types'
+
+const INBOX_MAX = 120
 
 export async function collectFiles(paths: string[]): Promise<{ files: FileMeta[]; abs: string[] }> {
   const files: FileMeta[] = []
@@ -28,15 +30,55 @@ export async function collectFiles(paths: string[]): Promise<{ files: FileMeta[]
   return { files, abs }
 }
 
-export function createSafeWriteStream(
-  receiveDir: string,
-  relativePath: string
-): ReturnType<typeof createWriteStream> {
+export function resolveReceivePath(receiveDir: string, relativePath: string): string {
   const safe = relativePath
     .replace(/\\/g, '/')
     .split('/')
     .filter((part) => part && part !== '..')
-  const target = join(receiveDir, ...safe)
+  return join(receiveDir, ...safe)
+}
+
+export function createSafeWriteStream(
+  receiveDir: string,
+  relativePath: string
+): ReturnType<typeof createWriteStream> {
+  const target = resolveReceivePath(receiveDir, relativePath)
   mkdirSync(dirname(target), { recursive: true })
   return createWriteStream(target)
+}
+
+export function isPathInsideDir(filePath: string, dir: string): boolean {
+  const root = resolve(dir)
+  const full = resolve(filePath)
+  return full === root || full.startsWith(root + sep)
+}
+
+export async function listInbox(receiveDir: string): Promise<InboxItem[]> {
+  const root = resolve(receiveDir)
+  mkdirSync(root, { recursive: true })
+  const items: InboxItem[] = []
+  try {
+    const entries = await readdir(root, { recursive: true, withFileTypes: true })
+    for (const entry of entries) {
+      if (!entry.isFile()) continue
+      if (entry.name.startsWith('_probe') || entry.name.startsWith('.')) continue
+      const filePath = join(entry.parentPath ?? root, entry.name)
+      if (!isPathInsideDir(filePath, root)) continue
+      try {
+        const st = statSync(filePath)
+        items.push({
+          path: filePath,
+          name: entry.name,
+          relativePath: relative(root, filePath).split(sep).join('/'),
+          size: st.size,
+          mtime: st.mtimeMs
+        })
+      } catch {
+        // skip unreadable
+      }
+    }
+  } catch {
+    return []
+  }
+  return items.sort((a, b) => b.mtime - a.mtime).slice(0, INBOX_MAX)
 }

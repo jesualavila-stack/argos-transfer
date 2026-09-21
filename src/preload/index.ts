@@ -36,6 +36,15 @@ const api = {
   clipboardReadImage: (): Promise<string | null> => ipcRenderer.invoke('argos:clipboardReadImage'),
   compressImage: (dataUrl: string): Promise<string | null> =>
     ipcRenderer.invoke('argos:compressImage', dataUrl),
+  refreshInbox: (): Promise<unknown> => ipcRenderer.invoke('argos:refreshInbox'),
+  openInboxItem: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('argos:openInboxItem', filePath),
+  revealInboxItem: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('argos:revealInboxItem', filePath),
+  openReceiveDir: (): Promise<void> => ipcRenderer.invoke('argos:openReceiveDir'),
+  startDrag: (filePath: string): void => {
+    ipcRenderer.send('argos:startDrag', filePath)
+  },
   getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 }
 

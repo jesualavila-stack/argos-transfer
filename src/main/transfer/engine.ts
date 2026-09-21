@@ -4,6 +4,7 @@ import type { TLSSocket } from 'node:tls'
 import type {
   AppState,
   ControlMessage,
+  InboxItem,
   LiveNote,
   PeerInfo,
   TransferSnapshot
@@ -14,7 +15,7 @@ import type { TlsMaterial } from '../identity'
 import { Discovery } from './discovery'
 import { TransferServer } from './server'
 import { openLiveChannel, pairWithPeer, sendFilesToPeer } from './client'
-import { collectFiles } from './files'
+import { collectFiles, listInbox } from './files'
 import {
   createLiveImageNote,
   createLiveNote,
@@ -41,6 +42,7 @@ export class TransferEngine extends EventEmitter {
   private liveConnecting = false
   private readonly liveLinks = new Set<LiveLink>()
   private liveNotes: LiveNote[] = []
+  private inbox: InboxItem[] = []
 
   constructor(
     private config: AppConfig,
@@ -70,7 +72,7 @@ export class TransferEngine extends EventEmitter {
     this.server.on('complete', () => {
       this.transfer = null
       this.statusText = 'Archivo recibido'
-      this.emitState()
+      void this.refreshInbox()
     })
     this.server.on('error', (error: unknown) => {
       this.lastError = error instanceof Error ? error.message : String(error)
@@ -97,6 +99,7 @@ export class TransferEngine extends EventEmitter {
   async start(): Promise<void> {
     mkdirSync(this.config.receiveDir, { recursive: true })
     this.liveNotes = loadLiveNotes()
+    await this.refreshInbox()
     this.discovery.setTrusted(this.config.trustedPeers)
     this.restoreKnownHosts()
     if (this.config.sendOnly) {
@@ -169,7 +172,8 @@ export class TransferEngine extends EventEmitter {
       statusText: this.statusText,
       sendOnly: this.config.sendOnly,
       liveNotes: this.liveNotes,
-      liveConnected: this.isLiveConnected()
+      liveConnected: this.isLiveConnected(),
+      inbox: this.inbox
     }
   }
 
@@ -199,7 +203,16 @@ export class TransferEngine extends EventEmitter {
     mkdirSync(dir, { recursive: true })
     this.syncIdentity()
     saveConfig(this.config)
+    void this.refreshInbox()
+  }
+
+  async refreshInbox(): Promise<void> {
+    this.inbox = await listInbox(this.config.receiveDir)
     this.emitState()
+  }
+
+  getReceiveDir(): string {
+    return this.config.receiveDir
   }
 
   setDockEnabled(enabled: boolean): void {

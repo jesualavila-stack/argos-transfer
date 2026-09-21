@@ -1,6 +1,6 @@
 {
   "name": "argos-transfer",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Transferencia directa de archivos por LAN entre tus PCs. Portable, sin admin, cifrada.",
   "main": "./out/main/index.js",
   "author": "Jesus Alavila",

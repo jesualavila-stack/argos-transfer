@@ -472,3 +472,92 @@ body.dock,
 .live-send {
   flex: 1;
 }
+
+.inbox {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  min-height: 320px;
+}
+
+.inbox-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.inbox-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.inbox-list {
+  display: grid;
+  gap: 6px;
+  max-height: 340px;
+  overflow: auto;
+}
+
+.inbox-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 18px 8px;
+}
+
+.inbox-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: grab;
+  text-align: left;
+}
+
+.inbox-item:active {
+  cursor: grabbing;
+}
+
+.inbox-item.active {
+  border-color: rgba(61, 139, 253, 0.45);
+  background: rgba(61, 139, 253, 0.1);
+}
+
+.inbox-item-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.inbox-item-main strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-item-main span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.inbox-drag-hint {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inbox-actions .primary {
+  flex: 1;
+  min-width: 90px;
+}
